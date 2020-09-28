@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>EJA Buoy B - LoRa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <script src="jquery.min.js"></script>
+</head>
+<body>
+  <h1>EJA Buoy B - LoRa</h1>
+  <p><a href="/lora"><button class="button">Refresh</button></a></p>
+  <p>Terminal: </p><br><span id='term'></span>
+</body>
+<script>
+  $(function() {
+
+    // request data every 5 seconds
+    setInterval(requestData, 1000);
+
+    function requestData() {
+
+      // ajax request for latest sensor data
+      $.get("/lora_terminal_messages")
+        .done(function(data) {
+
+          console.log(data);  // debugging - remove when satisfied
+
+          if (data) { // if the returned data is not null, update the values
+            $("#term").text(data.term);
+          } else { // a problem occurred
+            $("#term").text("?");
+          }
+        }).fail(function() {
+          console.log("The was a problem retrieving the data.");
+        });
+    }
+  });
+</script>
+</html>

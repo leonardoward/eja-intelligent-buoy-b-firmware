@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>EJA Buoy B - GPS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <script src="jquery.min.js"></script>
+</head>
+<body>
+  <h1>EJA Buoy B - GPS</h1>
+  <p><a href="/gps"><button class="button button2">Refresh</button></a></p>
+  <span>Sattelites: </span><span id='sattelites'></span><br>
+  <span>HDOP: </span><span id='hdop'></span><br>
+  <span>Lattitude: </span><span id='lat'></span><br>
+  <span>Longitude: </span><span id='lng'></span><br>
+  <span>Age: </span><span id='age'></span><br>
+  <span>DateTime: </span><span id='datetime'></span><br>
+  <span>Altitude: </span><span id='altitude'></span><br>
+  <span>Course: </span><span id='course_deg'></span><br>
+  <span>Speed: </span><span id='speed_kmph'></span><br>
+  <span>isValid: </span><span id='isValid'></span><br>
+</body>
+<script>
+  $(function() {
+
+    // request data every 5 seconds
+    setInterval(requestData, 1000);
+
+    function requestData() {
+
+      // ajax request for latest sensor data
+      $.get("/gps_data")
+        .done(function(data) {
+
+          console.log(data);  // debugging - remove when satisfied
+
+          if (data) { // if the returned data is not null, update the values
+            $("#sattelites").text(data.sattelites);
+            $("#hdop").text(data.hdop);
+            $("#lat").text(data.lat);
+            $("#lng").text(data.lng);
+            $("#age").text(data.age);
+            $("#datetime").text(data.datetime);
+            $("#altitude").text(data.altitude);
+            $("#course_deg").text(data.course_deg);
+            $("#speed_kmph").text(data.speed_kmph);
+            $("#isValid").text(data.isValid);
+          } else { // a problem occurred
+            $("#sattelites").text("?");
+            $("#hdop").text("?");
+            $("#lat").text("?");
+            $("#lng").text("?");
+            $("#age").text("?");
+            $("#datetime").text("?");
+            $("#altitude").text("?");
+            $("#course_deg").text("?");
+            $("#speed_kmph").text("?");
+            $("#isValid").text("?");
+          }
+        }).fail(function() {
+          console.log("The was a problem retrieving the data.");
+        });
+    }
+  });
+</script>
+</html>
