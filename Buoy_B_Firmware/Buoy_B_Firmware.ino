@@ -1,3 +1,15 @@
+/*LoRa Config
+ * This code uses InvertIQ function to create a simple Gateway/Node logic.
+  Gateway - Sends messages with enableInvertIQ()
+          - Receives messages with disableInvertIQ()
+  Node    - Sends messages with disableInvertIQ()
+          - Receives messages with enableInvertIQ()
+  With this arrangement a Gateway never receive messages from another Gateway
+  and a Node never receive message from another Node.
+  Only Gateway to Node and vice versa.
+  This code receives messages and sends a message every second.
+ * 
+ */
 // Include libraries
 #include <WiFi.h>
 #include <DNSServer.h>
@@ -390,7 +402,7 @@ static String getStrGPS(const char *str, int len)
 void LoRa_rxMode(){
   digitalWrite(LED_LORA_RX, HIGH); // turn on the LoRa RX LED
   digitalWrite(LED_LORA_TX, LOW);  // turn off the LoRa TX LED
-  LoRa.disableInvertIQ();          // normal mode
+  LoRa.enableInvertIQ();           // active invert I and Q signals
   LoRa.receive();                  // set receive mode
 }
 
@@ -401,7 +413,7 @@ void LoRa_txMode(){
   digitalWrite(LED_LORA_RX, LOW);  // turn off the LoRa RX LED
   digitalWrite(LED_LORA_TX, HIGH); // turn on the LoRa TX LED
   LoRa.idle();                     // set standby mode
-  LoRa.enableInvertIQ();           // active invert I and Q signals
+  LoRa.disableInvertIQ();          // normal mode
 }
 
 /**
