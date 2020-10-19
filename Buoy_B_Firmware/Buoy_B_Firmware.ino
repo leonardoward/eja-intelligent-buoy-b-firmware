@@ -58,6 +58,7 @@ TinyGPSPlus gps;
 unsigned long last_msg_rx = 0;
 unsigned long lora_last_tx = 0;
 unsigned long last_erase_buffers = 0;
+unsigned long last_ap_request = 0;
 
 // JSON with the relevant GPS data
 String gps_json;
@@ -114,50 +115,8 @@ void setup() {
   // Start the dns server
   dnsServer.start(DNS_PORT, host, IP);
 
-  // Route for root / web page
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/index.html", String(), false, processor);
-  });
-
-  // Route to load style.css file
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/style.css", "text/css");
-  });
-
-  // Route to load the jquery.min.js file
-  server.on("/jquery.min.js", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/jquery.min.js", "text/javascript");
-  });
-
-  // Route to load the lora web page
-  server.on("/lora", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/lora.html", String(), false, processor);
-  });
-
-  // Route to load a json with the global terminal messages from lora
-  server.on("/terminal_messages", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "application/json", "{\"term\": \""+ terminal_messages+"\"}");
-  });
-
-  // Route to load a json with the terminal messages from lora
-  server.on("/lora_terminal_messages", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "application/json", "{\"term\": \""+ lora_all_msg+"\"}");
-  });
-
-  // Route to load the terminal web page
-  server.on("/terminal", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/terminal.html", String(), false, processor);
-  });
-
-  // Route to load the GPS web page
-  server.on("/gps", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/gps.html", String(), false, processor);
-  });
-
-  // Route to load a json with the GPS data
-  server.on("/gps_data", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "application/json", gps_json);
-  });
+  //Add the html, css and js files to the web server
+  web_server_config();
 
   // Start ElegantOTA
   AsyncElegantOTA.begin(&server);
@@ -451,4 +410,72 @@ void onReceiveLora(int packetSize) {
 void onTxDoneLoRa() {
   lora_all_msg += "TxDone<br>"; // Store a message from the Lora process
   LoRa_rxMode();                // Activate lora's reception mode
+}
+
+//########################################
+//##              Web server            ##
+//########################################
+void web_server_config(){
+  // Route to load the sidebar.js file
+  server.on("/sidebar.js", HTTP_GET, [](AsyncWebServerRequest *request){
+    last_ap_request = millis();
+    request->send(SPIFFS, "/sidebar.js", "text/javascript");
+  });
+  
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+
+  // Route to load style.css file
+  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/style.css", "text/css");
+  });
+
+  // Route to load sidebar.css file
+  server.on("/sidebar.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    last_ap_request = millis();
+    request->send(SPIFFS, "/sidebar.css", "text/css");
+  });
+
+  // Route to load header.css file
+  server.on("/header.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    last_ap_request = millis();
+    request->send(SPIFFS, "/header.css", "text/css");
+  });
+
+  // Route to load the jquery.min.js file
+  server.on("/jquery.min.js", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/jquery.min.js", "text/javascript");
+  });
+
+  // Route to load the lora web page
+  server.on("/lora", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/lora.html", String(), false, processor);
+  });
+
+  // Route to load a json with the global terminal messages from lora
+  server.on("/terminal_messages", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "application/json", "{\"term\": \""+ terminal_messages+"\"}");
+  });
+
+  // Route to load a json with the terminal messages from lora
+  server.on("/lora_terminal_messages", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "application/json", "{\"term\": \""+ lora_all_msg+"\"}");
+  });
+
+  // Route to load the terminal web page
+  server.on("/terminal", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/terminal.html", String(), false, processor);
+  });
+
+  // Route to load the GPS web page
+  server.on("/gps", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/gps.html", String(), false, processor);
+  });
+
+  // Route to load a json with the GPS data
+  server.on("/gps_data", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "application/json", gps_json);
+  });
 }
