@@ -41,15 +41,15 @@ http://www.buoy_b.eja/
 
 The previous link displays the web page used for HOME:
 
-![alt text](./img/home.jpg "Home")
+<img src="./img/home.jpg" width="50%">
 
 There is a header with the name "EJA Buoy B" that opens a sidebar with links to the different test functionalities. It is also possible to access those pages using the buttons in HOME.
 
-![alt text](./img/menu.jpg "Menu")
+<img src="./img/menu.jpg" width="50%">
 
 The page http://www.buoy_b.eja/gps shows the data from the GPS module.
 
-![alt text](./img/gps.jpg "GPS")
+<img src="./img/gps.jpg" width="50%">
 
 The page http://www.buoy_b.eja/lora shows internal messages related to LoRa. In the ESP32 that information is stored in the variable:
 
@@ -57,11 +57,12 @@ The page http://www.buoy_b.eja/lora shows internal messages related to LoRa. In 
 String lora_all_msg = "";
 ```
 
-![alt text](./img/lora.jpg "LoRa")
+<img src="./img/lora.jpg" width="50%">
 
 The page "http://www.buoy_b.eja/terminal" shows internal messages. In the ESP32 that information is stored in the variable:
 
 ```
 String terminal_messages = "";
+```
 
-![alt text](./img/terminal.jpg "Terminal")
+<img src="./img/terminal.jpg" width="50%">
