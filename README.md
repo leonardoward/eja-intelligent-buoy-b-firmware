@@ -33,7 +33,7 @@ The ESP32 creates a Domain Name System (DNS) to assign a domain name to the web 
 const char* host = "www.buoy_b.eja";
 ```
 
-Once the device (phone/computer) is connected to the server (EJA_Onboard_Gateway), open a browser and visit the following url:
+Once the device (phone/computer) is connected to the server (EJA_Buoy_B), open a browser and visit the following url:
 
 ```
 http://www.buoy_b.eja/
