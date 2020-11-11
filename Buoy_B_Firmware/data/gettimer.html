@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>EJA Buoy B | LoRa</title>
+  <title>EJA Buoy B | Get Timer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
   <link rel="stylesheet" type="text/css" href="style.css">
@@ -22,8 +22,10 @@
   <div class="header">
     <span style="font-size:30px;cursor:pointer" onclick="openNav()">&#9776; EJA Buoy B</span>
   </div>
-  <h1>LoRa</h1>
-  <p>Terminal: </p><br><span id='term'></span>
+  <h1>Timer</h1>
+  <p>Hours:Min:Sec</p>
+  <p><span id='remaining_time'></span></p>
+  <p><a href="/deletetimer"><button class="button">Delete Timer</button></a></p>
 </body>
 <script>
   $(function() {
@@ -34,15 +36,15 @@
     function requestData() {
 
       // ajax request for latest sensor data
-      $.get("/lora_terminal_messages")
+      $.get("/timer_data")
         .done(function(data) {
 
           console.log(data);  // debugging - remove when satisfied
 
           if (data) { // if the returned data is not null, update the values
-            $("#term").text(data.term);
+            $("#remaining_time").text(data.remaining_time);
           } else { // a problem occurred
-            $("#term").text("?");
+            $("#remaining_time").text("?");
           }
         }).fail(function() {
           console.log("The was a problem retrieving the data.");

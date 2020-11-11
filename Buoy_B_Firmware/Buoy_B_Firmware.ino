@@ -35,6 +35,9 @@
 #define PERIOD_TX_LORA 1000   // Period between Lora Transmissions
 #define LORA_FREQUENCY 915E6  // Frequency used by the LoRa module
 #define GPS_BAUD  9600        // GPS baud rate
+#define TIME_PARAM_INPUT_1 "hours"
+#define TIME_PARAM_INPUT_2 "min"
+#define TIME_PARAM_INPUT_3 "sec"
 
 // Server credentials
 const char* host = "www.buoy_b.eja";
@@ -78,6 +81,14 @@ String gps_isvalid;
 String gps_chars_processed;
 String gps_sentences_with_fix;
 String gps_failed_checksum;
+
+// Variables of the timer
+int timer_end_hours = 0;
+int timer_end_min = 0;
+int timer_end_sec = 0;
+unsigned long timer_init_millis = 0;
+unsigned long timer_end_millis = 0;
+unsigned long timer_current = 0;
 
 void setup() {
   // Initialize serial communication (used for the GPS)
@@ -477,5 +488,80 @@ void web_server_config(){
   // Route to load a json with the GPS data
   server.on("/gps_data", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "application/json", gps_json);
+  });
+  // Route to change the timer (web page)
+  server.on("/timer", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if(timer_end_millis > timer_init_millis){
+      request->send(SPIFFS, "/gettimer.html", String(), false, processor);
+    } else {
+      request->send(SPIFFS, "/settimer.html", String(), false, processor);
+    }
+  });
+
+  // Route to load the timer web page
+  server.on("/deletetimer", HTTP_GET, [](AsyncWebServerRequest *request) {
+    timer_init_millis = 0;
+    timer_end_millis = 0; 
+    request->send(SPIFFS, "/settimer.html", String(), false, processor);
+  });
+
+  // Send a GET request to <ESP_IP>/get?input1=<inputMessage>
+  server.on("/setTime", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    String inputHours = "0";
+    String inputMin = "0";
+    String inputSec = "0";
+
+    // GET input1 value on <ESP_IP>/get?input1=<inputMessage>
+    if (request->hasParam(TIME_PARAM_INPUT_1)) {
+      inputHours = request->getParam(TIME_PARAM_INPUT_1)->value();
+      timer_end_hours = inputHours.toInt();
+      if (0 > timer_end_hours || 23 < timer_end_hours) timer_end_hours = 0;
+    }
+    // GET input2 value on <ESP_IP>/get?input2=<inputMessage>
+    if (request->hasParam(TIME_PARAM_INPUT_2)) {
+      inputMin = request->getParam(TIME_PARAM_INPUT_2)->value();
+      timer_end_min = inputMin.toInt();
+      if (0 > timer_end_min || 59 < timer_end_min) timer_end_min = 0;
+    }
+    // GET input3 value on <ESP_IP>/get?input3=<inputMessage>
+    if (request->hasParam(TIME_PARAM_INPUT_3)) {
+      inputSec = request->getParam(TIME_PARAM_INPUT_3)->value();
+      timer_end_sec = inputSec.toInt();
+      if (0 > timer_end_sec || 59 < timer_end_sec) timer_end_sec = 0;
+    }
+    timer_init_millis = millis();
+    timer_end_millis = timer_init_millis + timer_end_sec * 1000 + timer_end_min * 60 * 1000 + timer_end_hours * 60 * 60 * 1000;
+    timer_end_hours = 0;
+    timer_end_min = 0;
+    timer_end_sec = 0;
+    //Serial.println("Time Input - Hours : " + inputHours + " - Min : " + inputMin + " - Sec : " + inputSec);
+    terminal_messages += "Time Input - H:" + inputHours + " - M:" + inputMin + " - S:" + inputSec;
+    //request->send(200, "text/html", "HTTP GET request sent to Buoy B<br>Hours : " + inputHours + "<br>Min : " + inputMin + "<br>Sec : " + inputSec + "<br><a href=\"/\">Return to Home Page</a>");
+    if(timer_end_millis > timer_init_millis){
+      request->send(SPIFFS, "/gettimer.html", String(), false, processor);
+    } else {
+      request->send(SPIFFS, "/settimer.html", String(), false, processor);
+    }
+  });
+
+  // Route to load a json with the global terminal messages from lora
+  server.on("/timer_data", HTTP_GET, [](AsyncWebServerRequest *request) {
+    timer_current = millis();
+    String timer_data = "";
+    if(timer_end_millis > timer_current){
+      int remainig_hours = int((timer_end_millis-timer_current)/(60 * 60 * 1000));
+      String remainig_hours_str = String(remainig_hours);
+      if(remainig_hours < 10) remainig_hours_str = "0" + remainig_hours_str;
+      int remainig_min = int((timer_end_millis-timer_current)/(60 * 1000)) - remainig_hours * 60;
+      String remainig_min_str = String(remainig_min);
+      if(remainig_min < 10) remainig_min_str = "0" + remainig_min_str;
+      int remainig_sec = int((timer_end_millis-timer_current)/(1000)) - remainig_hours * 60 * 60 - remainig_min * 60;
+      String remainig_sec_str = String(remainig_sec);
+      if(remainig_sec < 10) remainig_sec_str = "0" + remainig_sec_str;
+      timer_data = remainig_hours_str + ":" + remainig_min_str + ":" + remainig_sec_str;
+    }else{
+      timer_data = "00:00:00";
+    }
+    request->send(200, "application/json", "{\"remaining_time\": \"" + timer_data +"\"}");
   });
 }
