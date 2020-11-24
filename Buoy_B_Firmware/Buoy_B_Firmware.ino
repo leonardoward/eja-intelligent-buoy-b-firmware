@@ -95,6 +95,8 @@ unsigned long timer_current = 0;
 
 int message_selector = GPS_MESSAGE_ID;
 
+bool timer_reached_end = false;
+
 void setup() {
   // Initialize serial communication (used for the GPS)
   Serial.begin(GPS_BAUD);
@@ -203,7 +205,9 @@ void loop(){
   // Create a JSON with the timer data
   timer_json = "{\"type\": \"timer\",";
   timer_json += " \"init_ms\": \"" + String(timer_init_millis) + "\",";
-  timer_json += " \"end_ms\": \"" + String(timer_end_millis) + "\"}";
+  timer_json += " \"end_ms\": \"" + String(timer_end_millis) + "\",";
+  timer_json += " \"timer_reached_end\": " + String(int(timer_reached_end)) + "}";
+  
 
   // Apply delay that ensures that the gps object is being "fed".
   smartDelay(1000);
@@ -236,6 +240,13 @@ void loop(){
     terminal_messages = "";
     lora_all_msg = "";
     Serial.println("Erased terminal buffers");
+  }
+
+  if((timer_end_millis > 0) && (millis() > timer_end_millis)){
+    timer_reached_end = true;
+    // ------   Activate release mechanism  --------------
+
+    // ---------------------------------------------------
   }
 }
 
@@ -454,6 +465,7 @@ void onReceiveLora(int packetSize) {
       lora_all_msg += "LoRaRX Type : timer";
       lora_all_msg += "LoRaRX Init : "+String(timer_init_millis)+" ms";
       lora_all_msg += "LoRaRX End : "+String(timer_end_millis)+" ms";  
+      timer_reached_end = false;
     } 
   }
   // Store the message in the string with all messages associated to lora
@@ -586,6 +598,7 @@ void web_server_config(){
     terminal_messages += "Time Input - H:" + inputHours + " - M:" + inputMin + " - S:" + inputSec;
     //request->send(200, "text/html", "HTTP GET request sent to Buoy B<br>Hours : " + inputHours + "<br>Min : " + inputMin + "<br>Sec : " + inputSec + "<br><a href=\"/\">Return to Home Page</a>");
     if(timer_end_millis > timer_init_millis){
+      timer_reached_end = false;
       request->send(SPIFFS, "/gettimer.html", String(), false, processor);
     } else {
       request->send(SPIFFS, "/settimer.html", String(), false, processor);
