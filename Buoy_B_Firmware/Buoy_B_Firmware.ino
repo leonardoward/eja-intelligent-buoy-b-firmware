@@ -35,9 +35,11 @@
 #define PERIOD_TX_LORA 1000   // Period between Lora Transmissions
 #define LORA_FREQUENCY 915E6  // Frequency used by the LoRa module
 #define GPS_BAUD  9600        // GPS baud rate
-#define TIME_PARAM_INPUT_1 "hours"
-#define TIME_PARAM_INPUT_2 "min"
-#define TIME_PARAM_INPUT_3 "sec"
+#define TIME_PARAM_INPUT_1 "hours"  // Params used to parse the html form submit
+#define TIME_PARAM_INPUT_2 "min"    // Params used to parse the html form submit
+#define TIME_PARAM_INPUT_3 "sec"    // Params used to parse the html form submit
+#define GPS_MESSAGE_ID 0
+#define TIMER_MESSAGE_ID 1
 
 // Server credentials
 const char* host = "www.buoy_b.eja";
@@ -59,12 +61,13 @@ TinyGPSPlus gps;
 
 // Time (millis) counters for timed operations
 unsigned long last_msg_rx = 0;
-unsigned long lora_last_tx = 0;
+unsigned long last_lora_tx = 0;
 unsigned long last_erase_buffers = 0;
 unsigned long last_ap_request = 0;
 
-// JSON with the relevant GPS data
-String gps_json;
+// JSON with the relevant data
+String gps_json;    // GPS data
+String timer_json;  // Timer data
 
 //Variables from the GPS
 String gps_sattelites;
@@ -89,6 +92,8 @@ int timer_end_sec = 0;
 unsigned long timer_init_millis = 0;
 unsigned long timer_end_millis = 0;
 unsigned long timer_current = 0;
+
+int message_selector = GPS_MESSAGE_ID;
 
 void setup() {
   // Initialize serial communication (used for the GPS)
@@ -167,7 +172,8 @@ void loop(){
   gps_failed_checksum = getIntGPS(gps.failedChecksum(), true, 9);
 
   // Create a JSON with the GPS data
-  gps_json = "{\"sattelites\": \""+ gps_sattelites +"\",";
+  gps_json = "{\"type\": \"gps\",";
+  gps_json += " \"sattelites\": \""+ gps_sattelites +"\",";
   gps_json += " \"hdop\": \""+ gps_hdop +"\",";
   gps_json += " \"lat\": \""+ gps_lat +"\",";
   gps_json += " \"lng\": \""+ gps_lng +"\",";
@@ -194,16 +200,35 @@ void loop(){
   terminal_messages += "Failed Checksum: " + gps_failed_checksum;
   terminal_messages += "<br>";
 
+  // Create a JSON with the timer data
+  timer_json = "{\"type\": \"timer\",";
+  timer_json += " \"init_ms\": \"" + String(timer_init_millis) + "\",";
+  timer_json += " \"end_ms\": \"" + String(timer_end_millis) + "\"}";
+
   // Apply delay that ensures that the gps object is being "fed".
   smartDelay(1000);
 
   if (millis() > 5000 && gps.charsProcessed() < 10)
     terminal_messages += "No GPS data received: check wiring <br>";
 
-  // Transmit LoRa msg every PERIOD_TX_LORA millis
-  if (runEvery(PERIOD_TX_LORA, &lora_last_tx)) { // repeat every 1000 millis
-    LoRa_sendMessage(gps_json);             // Send a message
-    lora_all_msg += "Send GPS Json!<br>";
+  // Transmit GPS LoRa msg every PERIOD_TX_LORA millis
+  if (runEvery(PERIOD_TX_LORA, &last_lora_tx)) { // repeat every 1000 millis
+    switch (message_selector) {
+      case GPS_MESSAGE_ID:
+        LoRa_sendMessage(gps_json);             // Send a message
+        lora_all_msg += "LoRaTX GPS Message<br>";
+        message_selector = TIMER_MESSAGE_ID;
+        break;
+      case TIMER_MESSAGE_ID:
+        LoRa_sendMessage(timer_json);             // Send a message
+        lora_all_msg += "LoRaTX Timer Message<br>";
+        message_selector = GPS_MESSAGE_ID;
+        break;
+      default:
+        // statements
+        break;
+    }
+    
   }
 
   // Erase terminal buff every PERIOD_ERASE_BUFF millis
@@ -408,8 +433,31 @@ void onReceiveLora(int packetSize) {
     message += (char)LoRa.read();   // Read a new value from the RX buffer
   }
 
+  // Parse Type of Message
+  int init_index = 0;
+  int end_index = message.indexOf(':', init_index);
+  String json_param = message.substring(message.indexOf('"', init_index) + 1, end_index - 1);
+  String json_value = message.substring(message.indexOf('"', end_index) + 1 , message.indexOf(',', end_index) - 1);
+  
+  if(json_param.equals("type")){
+    if(json_value.equals("timer")){  // Parse timer message   
+      init_index = message.indexOf(',', end_index);
+      end_index = message.indexOf(':', init_index);
+      json_param = message.substring(message.indexOf('"', init_index) + 1, end_index - 1);
+      json_value = message.substring(message.indexOf('"', end_index) + 1 , message.indexOf(',', end_index) - 1);
+      if(json_param.equals("init_ms")) timer_init_millis = strtoul(json_value.c_str(), NULL, 10);
+      init_index = message.indexOf(',', end_index);
+      end_index = message.indexOf(':', init_index);
+      json_param = message.substring(message.indexOf('"', init_index) + 1, end_index - 1);
+      json_value = message.substring(message.indexOf('"', end_index) + 1 , message.indexOf(',', end_index) - 1);
+      if(json_param.equals("end_ms")) timer_end_millis = strtoul(json_value.c_str(), NULL, 10);
+      lora_all_msg += "LoRaRX Type : timer";
+      lora_all_msg += "LoRaRX Init : "+String(timer_init_millis)+" ms";
+      lora_all_msg += "LoRaRX End : "+String(timer_end_millis)+" ms";  
+    } 
+  }
   // Store the message in the string with all messages associated to lora
-  lora_all_msg += "Node Receive: <br>";
+  lora_all_msg += "LoRaRX Node Received: <br>";
   lora_all_msg += message + "<br>";
 
   last_msg_rx = millis();           // Store the time of the last reception
@@ -498,7 +546,7 @@ void web_server_config(){
     }
   });
 
-  // Route to load the timer web page
+  // Route to delete the timer (web page)
   server.on("/deletetimer", HTTP_GET, [](AsyncWebServerRequest *request) {
     timer_init_millis = 0;
     timer_end_millis = 0; 
