@@ -39,6 +39,8 @@ Once the device (phone/computer) is connected to the server (EJA_Buoy_B), open a
 http://www.buoy_b.eja/
 ```
 
+### HOME ###
+
 The previous link displays the web page used for HOME:
 
 <img src="./img/home.jpg" width="50%">
@@ -47,9 +49,31 @@ There is a header with the name "EJA Buoy B" that opens a sidebar with links to 
 
 <img src="./img/menu.jpg" width="50%">
 
+### GPS ###
+
 The page http://www.buoy_b.eja/gps shows the data from the GPS module.
 
 <img src="./img/gps.jpg" width="50%">
+
+### Timer ###
+
+The page http://www.buoy_b.eja/timer shows the interface to create a timer in the Buoy. The timer represents a countdown that activates the release mechanism when the time has reached zero. The initial page allows the user to set the timer.
+
+<img src="./img/settimer_filled.jpg" width="50%">
+
+After selecting the amount of time the user has to click the **Submit** button. That will create the timer, the interface displays the countdown to the user.
+
+<img src="./img/remaining_time.jpg" width="50%">
+
+When the timer reaches zero, the Buoy activates the release mechanism.
+
+<img src="./img/timer_reached_zero.jpg" width="50%">
+
+The user can delete the timer at any time clicking the button **Delete Timer**. When the user deletes the timer, it is possible to create a new one a restart the process.
+
+<img src="./img/delete_timer.jpg" width="50%">
+
+### LoRa ###
 
 The page http://www.buoy_b.eja/lora shows internal messages related to LoRa. In the ESP32 that information is stored in the variable:
 
@@ -58,6 +82,8 @@ String lora_all_msg = "";
 ```
 
 <img src="./img/lora.jpg" width="50%">
+
+### Terminal ###
 
 The page "http://www.buoy_b.eja/terminal" shows internal messages. In the ESP32 that information is stored in the variable:
 
