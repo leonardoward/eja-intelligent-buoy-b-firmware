@@ -89,8 +89,8 @@ String gps_failed_checksum;
 int timer_end_hours = 0;
 int timer_end_min = 0;
 int timer_end_sec = 0;
-unsigned long timer_init_millis = 0;
-unsigned long timer_end_millis = 0;
+unsigned long timer_end_ts_shared = 0;
+unsigned long timer_end_ts_local = 0;
 unsigned long timer_current = 0;
 
 int message_selector = GPS_MESSAGE_ID;
@@ -204,8 +204,8 @@ void loop(){
 
   // Create a JSON with the timer data
   timer_json = "{\"type\": \"timer\",";
-  timer_json += " \"init_ms\": \"" + String(timer_init_millis) + "\",";
-  timer_json += " \"end_ms\": \"" + String(timer_end_millis) + "\",";
+  timer_json += " \"current_ts\": \"" + String(millis()) + "\",";
+  timer_json += " \"end_ts\": \"" + String(timer_end_ts_shared) + "\",";
   timer_json += " \"timer_reached_end\": " + String(int(timer_reached_end)) + "}";
   
 
@@ -242,7 +242,7 @@ void loop(){
     Serial.println("Erased terminal buffers");
   }
 
-  if((timer_end_millis > 0) && (millis() > timer_end_millis)){
+  if((timer_end_ts_local > 0) && (millis() > timer_end_ts_local)){
     timer_reached_end = true;
     // ------   Activate release mechanism  --------------
 
@@ -449,6 +449,7 @@ void onReceiveLora(int packetSize) {
   int end_index = message.indexOf(':', init_index);
   String json_param = message.substring(message.indexOf('"', init_index) + 1, end_index - 1);
   String json_value = message.substring(message.indexOf('"', end_index) + 1 , message.indexOf(',', end_index) - 1);
+  unsigned long onboard_gateway_current_time = 0;
   
   if(json_param.equals("type")){
     if(json_value.equals("timer")){  // Parse timer message   
@@ -456,15 +457,19 @@ void onReceiveLora(int packetSize) {
       end_index = message.indexOf(':', init_index);
       json_param = message.substring(message.indexOf('"', init_index) + 1, end_index - 1);
       json_value = message.substring(message.indexOf('"', end_index) + 1 , message.indexOf(',', end_index) - 1);
-      if(json_param.equals("init_ms")) timer_init_millis = strtoul(json_value.c_str(), NULL, 10);
+      if(json_param.equals("current_ts")) onboard_gateway_current_time = strtoul(json_value.c_str(), NULL, 10);
       init_index = message.indexOf(',', end_index);
       end_index = message.indexOf(':', init_index);
       json_param = message.substring(message.indexOf('"', init_index) + 1, end_index - 1);
       json_value = message.substring(message.indexOf('"', end_index) + 1 , message.indexOf(',', end_index) - 1);
-      if(json_param.equals("end_ms")) timer_end_millis = strtoul(json_value.c_str(), NULL, 10);
+      if(json_param.equals("end_ts")){
+        timer_end_ts_shared = strtoul(json_value.c_str(), NULL, 10);
+        if(timer_end_ts_shared > 0 && timer_end_ts_local != timer_end_ts_shared)timer_end_ts_local = millis() + timer_end_ts_shared - onboard_gateway_current_time;
+      }
+      
       lora_all_msg += "LoRaRX Type : timer";
-      lora_all_msg += "LoRaRX Init : "+String(timer_init_millis)+" ms";
-      lora_all_msg += "LoRaRX End : "+String(timer_end_millis)+" ms";  
+      lora_all_msg += "LoRaRX Onboard Gateway ts : "+String(onboard_gateway_current_time)+" ms";
+      lora_all_msg += "LoRaRX Shared End ts : "+String(timer_end_ts_shared)+" ms";  
       timer_reached_end = false;
     } 
   }
@@ -551,7 +556,7 @@ void web_server_config(){
   });
   // Route to change the timer (web page)
   server.on("/timer", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if(timer_end_millis > timer_init_millis){
+    if(timer_end_ts_local > millis()){
       request->send(SPIFFS, "/gettimer.html", String(), false, processor);
     } else {
       request->send(SPIFFS, "/settimer.html", String(), false, processor);
@@ -560,8 +565,8 @@ void web_server_config(){
 
   // Route to delete the timer (web page)
   server.on("/deletetimer", HTTP_GET, [](AsyncWebServerRequest *request) {
-    timer_init_millis = 0;
-    timer_end_millis = 0; 
+    timer_end_ts_shared = 0; 
+    timer_end_ts_local = 0; 
     request->send(SPIFFS, "/settimer.html", String(), false, processor);
   });
 
@@ -570,7 +575,6 @@ void web_server_config(){
     String inputHours = "0";
     String inputMin = "0";
     String inputSec = "0";
-
     // GET input1 value on <ESP_IP>/get?input1=<inputMessage>
     if (request->hasParam(TIME_PARAM_INPUT_1)) {
       inputHours = request->getParam(TIME_PARAM_INPUT_1)->value();
@@ -589,16 +593,16 @@ void web_server_config(){
       timer_end_sec = inputSec.toInt();
       if (0 > timer_end_sec || 59 < timer_end_sec) timer_end_sec = 0;
     }
-    timer_init_millis = millis();
-    timer_end_millis = timer_init_millis + timer_end_sec * 1000 + timer_end_min * 60 * 1000 + timer_end_hours * 60 * 60 * 1000;
-    timer_end_hours = 0;
-    timer_end_min = 0;
-    timer_end_sec = 0;
+    timer_end_ts_local = millis() + timer_end_sec * 1000 + timer_end_min * 60 * 1000 + timer_end_hours * 60 * 60 * 1000;
     //Serial.println("Time Input - Hours : " + inputHours + " - Min : " + inputMin + " - Sec : " + inputSec);
     terminal_messages += "Time Input - H:" + inputHours + " - M:" + inputMin + " - S:" + inputSec;
     //request->send(200, "text/html", "HTTP GET request sent to Buoy B<br>Hours : " + inputHours + "<br>Min : " + inputMin + "<br>Sec : " + inputSec + "<br><a href=\"/\">Return to Home Page</a>");
-    if(timer_end_millis > timer_init_millis){
+    if(timer_end_sec > 0 || timer_end_min > 0 || timer_end_hours > 0){
       timer_reached_end = false;
+      timer_end_ts_shared = timer_end_ts_local;
+      timer_end_hours = 0;
+      timer_end_min = 0;
+      timer_end_sec = 0;
       request->send(SPIFFS, "/gettimer.html", String(), false, processor);
     } else {
       request->send(SPIFFS, "/settimer.html", String(), false, processor);
@@ -607,22 +611,27 @@ void web_server_config(){
 
   // Route to load a json with the global terminal messages from lora
   server.on("/timer_data", HTTP_GET, [](AsyncWebServerRequest *request) {
-    timer_current = millis();
-    String timer_data = "";
-    if(timer_end_millis > timer_current){
-      int remainig_hours = int((timer_end_millis-timer_current)/(60 * 60 * 1000));
-      String remainig_hours_str = String(remainig_hours);
-      if(remainig_hours < 10) remainig_hours_str = "0" + remainig_hours_str;
-      int remainig_min = int((timer_end_millis-timer_current)/(60 * 1000)) - remainig_hours * 60;
-      String remainig_min_str = String(remainig_min);
-      if(remainig_min < 10) remainig_min_str = "0" + remainig_min_str;
-      int remainig_sec = int((timer_end_millis-timer_current)/(1000)) - remainig_hours * 60 * 60 - remainig_min * 60;
-      String remainig_sec_str = String(remainig_sec);
-      if(remainig_sec < 10) remainig_sec_str = "0" + remainig_sec_str;
-      timer_data = remainig_hours_str + ":" + remainig_min_str + ":" + remainig_sec_str;
-    }else{
-      timer_data = "00:00:00";
-    }
+    String timer_data = get_remaining_time(timer_end_ts_local);
     request->send(200, "application/json", "{\"remaining_time\": \"" + timer_data +"\"}");
   });
+}
+
+String get_remaining_time(unsigned long timer_end_millis){
+  unsigned long timer_current = millis();
+  String timer_data = "";
+  if(timer_end_millis > timer_current){
+    int remainig_hours = int((timer_end_millis-timer_current)/(60 * 60 * 1000));
+    String remainig_hours_str = String(remainig_hours);
+    if(remainig_hours < 10) remainig_hours_str = "0" + remainig_hours_str;
+    int remainig_min = int((timer_end_millis-timer_current)/(60 * 1000)) - remainig_hours * 60;
+    String remainig_min_str = String(remainig_min);
+    if(remainig_min < 10) remainig_min_str = "0" + remainig_min_str;
+    int remainig_sec = int((timer_end_millis-timer_current)/(1000)) - remainig_hours * 60 * 60 - remainig_min * 60;
+    String remainig_sec_str = String(remainig_sec);
+    if(remainig_sec < 10) remainig_sec_str = "0" + remainig_sec_str;
+    timer_data = remainig_hours_str + ":" + remainig_min_str + ":" + remainig_sec_str;
+  }else{
+    timer_data = "00:00:00";
+  }
+  return timer_data;
 }
